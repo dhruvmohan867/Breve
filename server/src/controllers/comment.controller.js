@@ -4,6 +4,7 @@ import {Like} from "../models/like.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
+import {clampPage, clampLimit} from "../utils/query.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     const {videoId} = req.params
@@ -12,6 +13,11 @@ const getVideoComments = asyncHandler(async (req, res) => {
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID")
     }
+
+    const pageNum = clampPage(page)
+    const limitNum = clampLimit(limit)
+    const skip = (pageNum - 1) * limitNum
+    const likedBy = req.user?._id || null
 
     const pipeline = [
         {
@@ -22,6 +28,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
         {
             $sort: { createdAt: -1 }
         },
+        { $skip: skip },
+        { $limit: limitNum },
         // Lookup owner details
         {
             $lookup: {
@@ -59,7 +67,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
                 likesCount: { $size: "$likes" },
                 isLiked: {
                     $cond: {
-                        if: { $in: [req.user?._id, "$likes.likedBy"] },
+                        if: likedBy ? { $in: [likedBy, "$likes.likedBy"] } : false,
                         then: true,
                         else: false
                     }
@@ -78,16 +86,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
         }
     ]
 
-    // Manual pagination since Comment model doesn't have aggregatePaginate plugin
-    const pageNum = parseInt(page)
-    const limitNum = parseInt(limit)
-    const skip = (pageNum - 1) * limitNum
-
     const totalDocs = await Comment.countDocuments({ video: new mongoose.Types.ObjectId(String(videoId)) })
     const totalPages = Math.ceil(totalDocs / limitNum)
-
-    // Add pagination stages to pipeline
-    pipeline.push({ $skip: skip }, { $limit: limitNum })
 
     const comments = await Comment.aggregate(pipeline)
 
@@ -95,10 +95,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
         new ApiResponse(200, {
             docs: comments,
             totalDocs,
-            page: parseInt(page),
+            page: pageNum,
             totalPages,
-            hasNextPage: parseInt(page) < totalPages,
-            hasPrevPage: parseInt(page) > 1
+            hasNextPage: pageNum < totalPages,
+            hasPrevPage: pageNum > 1
         }, "Comments fetched successfully")
     )
 })

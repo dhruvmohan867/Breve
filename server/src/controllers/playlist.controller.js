@@ -290,7 +290,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 
     const updateFields = {}
     if (name?.trim()) updateFields.name = name.trim()
-    if (description !== undefined) updateFields.description = description.trim()
+    if (typeof description === "string") updateFields.description = description.trim()
 
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
         playlistId,

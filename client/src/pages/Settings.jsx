@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
 import { HiUser, HiLockClosed, HiPhotograph } from 'react-icons/hi';
 
 export default function Settings() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({ fullname: user?.fullname || '', email: user?.email || '' });
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '' });
   const [avatarFile, setAvatarFile] = useState(null);
@@ -32,7 +34,9 @@ export default function Settings() {
     try {
       await API.post('/users/change-password', passwords);
       setPasswords({ oldPassword: '', newPassword: '' });
-      toast.success('Password changed');
+      toast.success('Password changed. Sign in again.');
+      await logout();
+      navigate('/login');
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setSaving(s => ({ ...s, password: false })); }
   };

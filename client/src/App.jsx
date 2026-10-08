@@ -1,10 +1,12 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { useState } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
+import Week from './pages/Week';
+import Bill from './pages/Bill';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Upload from './pages/Upload';
@@ -18,6 +20,13 @@ import PlaylistDetail from './pages/PlaylistDetail';
 import Channel from './pages/Channel';
 import Settings from './pages/Settings';
 import Subscriptions from './pages/Subscriptions';
+
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading"><div className="spinner" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
 
 function Layout() {
   const location = useLocation();
@@ -40,17 +49,20 @@ function Layout() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/upload" element={<Upload />} />
+            <Route path="/week" element={<Week />} />
+            <Route path="/archive" element={<Navigate to="/" replace />} />
+            <Route path="/bill" element={<RequireAuth><Bill /></RequireAuth>} />
+            <Route path="/upload" element={<RequireAuth><Upload /></RequireAuth>} />
             <Route path="/video/:videoId" element={<VideoPlayer />} />
             <Route path="/tweets" element={<Tweets />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/liked" element={<LikedVideos />} />
-            <Route path="/history" element={<History />} />
+            <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+            <Route path="/liked" element={<RequireAuth><LikedVideos /></RequireAuth>} />
+            <Route path="/history" element={<RequireAuth><History /></RequireAuth>} />
             <Route path="/playlists" element={<Playlists />} />
             <Route path="/playlists/:playlistId" element={<PlaylistDetail />} />
             <Route path="/channel/:username" element={<Channel />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+            <Route path="/subscriptions" element={<RequireAuth><Subscriptions /></RequireAuth>} />
           </Routes>
         </main>
       </div>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { HiSearch, HiPlus, HiMenu } from 'react-icons/hi';
 
 export default function Header({ onToggleSidebar }) {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [query, setQuery] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const navigate = useNavigate();
@@ -20,12 +20,12 @@ export default function Header({ onToggleSidebar }) {
         <button className="mobile-menu-btn" onClick={onToggleSidebar}>
           <HiMenu />
         </button>
-        <Link to="/" className="header-logo">▶ Breve</Link>
+        <Link to="/" className="header-logo">Breve</Link>
       </div>
 
       <form className="header-search" onSubmit={handleSearch}>
         <input
-          type="text" placeholder="Search videos..."
+          type="text" placeholder="Find a film"
           value={query} onChange={(e) => setQuery(e.target.value)}
         />
         <button type="submit"><HiSearch /></button>
@@ -61,7 +61,7 @@ export default function Header({ onToggleSidebar }) {
               )}
             </div>
           </>
-        ) : (
+        ) : loading ? null : (
           <Link to="/login" className="btn btn-primary btn-sm">Sign In</Link>
         )}
       </div>

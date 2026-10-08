@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import API from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -76,12 +76,30 @@ export default function VideoPlayer() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
   const [editText, setEditText] = useState('');
-  const [related, setRelated] = useState([]);
+  const [credits, setCredits] = useState({ maker: '', place: '', year: '', rights: '' });
+  const [savingCredits, setSavingCredits] = useState(false);
+  const viewSent = useRef(false);
 
   useEffect(() => {
+    viewSent.current = false;
+    setLiked(false);
+    setLikesCount(0);
+    setSubscribed(false);
     setLoading(true);
     API.get(`/videos/${videoId}`)
-      .then(({ data }) => setVideo(data.data))
+      .then(({ data }) => {
+        const next = data.data;
+        setVideo(next);
+        setLiked(Boolean(next?.isLiked));
+        setLikesCount(next?.likesCount || 0);
+        setSubscribed(Boolean(next?.isSubscribed));
+        setCredits({
+          maker: next?.maker || '',
+          place: next?.place || '',
+          year: next?.year || '',
+          rights: next?.rights || ''
+        });
+      })
       .catch(() => toast.error('Video not found'))
       .finally(() => setLoading(false));
 
@@ -89,22 +107,59 @@ export default function VideoPlayer() {
       .then(({ data }) => setComments(data.data?.docs || []))
       .catch(() => {});
 
-    API.get('/videos', { params: { page: 1, limit: 6, sortBy: 'views', sortType: 'desc' } })
-      .then(({ data }) => setRelated((data.data?.docs || []).filter(v => v._id !== videoId)))
-      .catch(() => {});
   }, [videoId]);
+
+  const saveCredits = async (e) => {
+    e.preventDefault();
+    setSavingCredits(true);
+    try {
+      const { data } = await API.patch(`/videos/${videoId}`, credits);
+      setVideo((current) => current ? { ...current, ...data.data } : current);
+      toast.success('Credits saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save credits');
+    } finally {
+      setSavingCredits(false);
+    }
+  };
+
+  const recordView = (watchedSeconds) => {
+    if (viewSent.current) return;
+    viewSent.current = true;
+    API.post(`/videos/${videoId}/view`, { watchedSeconds })
+      .then(({ data }) => {
+        if (!data.data?.counted) {
+          viewSent.current = false;
+          return;
+        }
+        if (typeof data.data?.views === 'number') {
+          setVideo((current) => current ? { ...current, views: data.data.views } : current);
+        }
+      })
+      .catch(() => { viewSent.current = false; });
+  };
+
+  const onProgress = (event) => {
+    if (viewSent.current) return;
+    const watched = event.currentTarget.currentTime || 0;
+    const duration = Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : Number(video?.duration);
+    const needed = !duration || !Number.isFinite(duration) ? 30 : Math.min(30, duration * 0.25);
+    if (watched >= needed) recordView(watched);
+  };
 
   const toggleLike = async () => {
     if (!user) return toast.error('Please sign in');
-    setLiked(!liked);
-    setLikesCount(prev => liked ? prev - 1 : prev + 1);
+    const previousLiked = liked;
+    const previousCount = likesCount;
+    setLiked(!previousLiked);
+    setLikesCount(previousLiked ? Math.max(previousCount - 1, 0) : previousCount + 1);
     try {
       const { data } = await API.post(`/likes/toggle/v/${videoId}`);
       setLiked(data.data.liked);
       setLikesCount(data.data.likesCount);
     } catch {
-      setLiked(!liked);
-      setLikesCount(prev => liked ? prev + 1 : prev - 1);
+      setLiked(previousLiked);
+      setLikesCount(previousCount);
       toast.error('Failed');
     }
   };
@@ -167,9 +222,26 @@ export default function VideoPlayer() {
   return (
     <div className="video-player-container">
       <div>
-        <video controls autoPlay src={getStreamableUrl(video.videofile)} poster={video.thumbnail} style={{ width: '100%', borderRadius: 'var(--radius)', background: '#000', maxHeight: '70vh' }} />
+        <video controls autoPlay onTimeUpdate={onProgress} src={getStreamableUrl(video.videofile)} poster={video.thumbnail} style={{ width: '100%', borderRadius: 'var(--radius)', background: '#000', maxHeight: '70vh' }}>
+          {video.captions && <track kind="captions" src={video.captions} srcLang="en" label="Captions" default />}
+        </video>
         <div className="video-details">
           <h1>{video.title}</h1>
+          {[video.maker, video.place, video.year].filter(Boolean).length > 0 && (
+            <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              {[video.maker, video.place, video.year].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {video.rights && (
+            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.82rem' }}>{video.rights}</p>
+          )}
+          <p style={{ margin: '8px 0 12px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {[
+              video.duration ? `${Math.floor(video.duration / 60)}:${Math.floor(video.duration % 60).toString().padStart(2, '0')}` : null,
+              video.width && video.height ? `${video.width} x ${video.height}` : null,
+              video.codec || null
+            ].filter(Boolean).join(' · ')}
+          </p>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               {video.views?.toLocaleString()} views • {timeAgo(video.createdAt)}
@@ -195,6 +267,21 @@ export default function VideoPlayer() {
               </button>
             )}
           </div>
+
+          {user && video.owner?._id === user._id && (
+            <form onSubmit={saveCredits} style={{ marginTop: 12, padding: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '0.8rem', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 10 }}>CREDITS</div>
+              <div className="form-row">
+                <input className="form-control" placeholder="Maker" maxLength={80} value={credits.maker} onChange={(e) => setCredits({ ...credits, maker: e.target.value })} />
+                <input className="form-control" placeholder="Place" maxLength={80} value={credits.place} onChange={(e) => setCredits({ ...credits, place: e.target.value })} />
+                <input className="form-control" placeholder="Year" inputMode="numeric" maxLength={4} value={credits.year} onChange={(e) => setCredits({ ...credits, year: e.target.value })} />
+              </div>
+              <input className="form-control" placeholder="Rights" maxLength={160} value={credits.rights} onChange={(e) => setCredits({ ...credits, rights: e.target.value })} style={{ marginTop: 10 }} />
+              <button className="btn btn-secondary btn-sm" style={{ marginTop: 10 }} disabled={savingCredits}>
+                {savingCredits ? 'Saving...' : 'Save credits'}
+              </button>
+            </form>
+          )}
 
           {video.description && (
             <div style={{ padding: 16, background: 'var(--bg-secondary)', borderRadius: 'var(--radius)', marginTop: 12, fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
@@ -247,19 +334,29 @@ export default function VideoPlayer() {
       </div>
 
       <div>
-        <h3 style={{ marginBottom: 16, fontSize: '1rem' }}>Related Videos</h3>
-        {related.length === 0 ? (
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No related videos</div>
+        <h3 style={{ marginBottom: 16, fontSize: '1rem' }}>Next this week</h3>
+        {video.nextInWeek ? (
+          <button className="bill-row" onClick={() => navigate(`/video/${video.nextInWeek._id}`)}>
+            <img src={video.nextInWeek.thumbnail} alt="" />
+            <span className="bill-copy">
+              <span className="bill-title">{video.nextInWeek.title}</span>
+            </span>
+          </button>
         ) : (
-          related.map(v => (
-            <div key={v._id} style={{ display: 'flex', gap: 10, marginBottom: 14, cursor: 'pointer', borderRadius: 'var(--radius-sm)', padding: 6, transition: 'var(--transition)' }} onClick={() => navigate(`/video/${v._id}`)}>
-              <img src={v.thumbnail} alt="" style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.3, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{v.title}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.owner?.username}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{v.views} views • {timeAgo(v.createdAt)}</div>
-              </div>
-            </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 18 }}>This film is not followed by another title in the week.</p>
+        )}
+        <h3 style={{ margin: '22px 0 12px', fontSize: '1rem' }}>Same place or year</h3>
+        {(video.kin || []).length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No other film shares a place or year yet.</p>
+        ) : (
+          video.kin.map((item) => (
+            <button key={item._id} className="bill-row" onClick={() => navigate(`/video/${item._id}`)}>
+              <img src={item.thumbnail} alt="" />
+              <span className="bill-copy">
+                <span className="bill-title">{item.title}</span>
+                <span className="bill-credit">{[item.place, item.year].filter(Boolean).join(' · ')}</span>
+              </span>
+            </button>
           ))
         )}
       </div>

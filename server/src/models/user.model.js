@@ -23,9 +23,15 @@ const userSchema = new Schema({
     type : String ,
     required : true
   },
+  avatarPublicId: {
+    type: String,
+  },
   coverImage:{
     type : String,
-    required : true
+    default : ""
+  },
+  coverImagePublicId: {
+    type: String,
   },
   watchHistory : [{
     type : mongoose.Schema.Types.ObjectId,

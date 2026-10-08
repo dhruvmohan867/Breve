@@ -20,10 +20,10 @@ export default function Tweets() {
   const [editText, setEditText] = useState('');
 
   const fetchTweets = () => {
-    if (!user) { setLoading(false); return; }
-    API.get(`/tweets/user/${user._id}?page=1&limit=50`)
+    setLoading(true);
+    API.get('/tweets?page=1&limit=50')
       .then(({ data }) => setTweets(data.data?.docs || []))
-      .catch(() => {})
+      .catch(() => setTweets([]))
       .finally(() => setLoading(false));
   };
 
@@ -103,7 +103,7 @@ export default function Tweets() {
         <div className="empty-state">
           <div className="empty-icon">🐦</div>
           <h3>No tweets yet</h3>
-          <p>{user ? 'Post your first tweet above!' : 'Sign in to see and post tweets'}</p>
+          <p>{user ? 'Post the first note above.' : 'No notes yet. Sign in to post one.'}</p>
         </div>
       ) : (
         tweets.map((t, i) => (

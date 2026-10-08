@@ -5,14 +5,14 @@ import {
     updateComment,
     deleteComment
 } from "../controllers/comment.controller.js";
-import { verifyJwt } from "../middlewares/auth.middleware.js";
+import { verifyJwt, optionalJwt } from "../middlewares/auth.middleware.js";
 import { body } from "express-validator";
 import { validate } from "../middlewares/validate.middleware.js";
 
 const router = Router();
 
 // Public
-router.route("/:videoId").get(getVideoComments);
+router.route("/:videoId").get(optionalJwt, getVideoComments);
 
 // Protected
 router.route("/:videoId").post(

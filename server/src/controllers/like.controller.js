@@ -19,15 +19,18 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     let liked = false
 
     if (existingLike) {
-        // Unlike: remove existing like
         await Like.findByIdAndDelete(existingLike._id)
     } else {
-        // Like: create new like
-        await Like.create({
-            video: videoId,
-            likedBy: req.user._id
-        })
-        liked = true
+        try {
+            await Like.create({
+                video: videoId,
+                likedBy: req.user._id
+            })
+            liked = true
+        } catch (error) {
+            if (error?.code !== 11000) throw error
+            liked = true
+        }
     }
 
     const likesCount = await Like.countDocuments({ video: videoId })
@@ -54,11 +57,16 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     if (existingLike) {
         await Like.findByIdAndDelete(existingLike._id)
     } else {
-        await Like.create({
-            comment: commentId,
-            likedBy: req.user._id
-        })
-        liked = true
+        try {
+            await Like.create({
+                comment: commentId,
+                likedBy: req.user._id
+            })
+            liked = true
+        } catch (error) {
+            if (error?.code !== 11000) throw error
+            liked = true
+        }
     }
 
     const likesCount = await Like.countDocuments({ comment: commentId })
@@ -85,11 +93,16 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     if (existingLike) {
         await Like.findByIdAndDelete(existingLike._id)
     } else {
-        await Like.create({
-            tweet: tweetId,
-            likedBy: req.user._id
-        })
-        liked = true
+        try {
+            await Like.create({
+                tweet: tweetId,
+                likedBy: req.user._id
+            })
+            liked = true
+        } catch (error) {
+            if (error?.code !== 11000) throw error
+            liked = true
+        }
     }
 
     const likesCount = await Like.countDocuments({ tweet: tweetId })

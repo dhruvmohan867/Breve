@@ -5,6 +5,7 @@ import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
+import {clampPage, clampLimit} from "../utils/query.js"
 
 const createTweet = asyncHandler(async (req, res) => {
     const { content } = req.body
@@ -29,29 +30,19 @@ const createTweet = asyncHandler(async (req, res) => {
     )
 })
 
-const getUserTweets = asyncHandler(async (req, res) => {
-    const { userId } = req.params
-    const { page = 1, limit = 10 } = req.query
-
-    if (!isValidObjectId(userId)) {
-        throw new ApiError(400, "Invalid user ID")
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit)
-    const totalDocs = await Tweet.countDocuments({ owner: new mongoose.Types.ObjectId(String(userId)) })
-    const totalPages = Math.ceil(totalDocs / parseInt(limit))
+const listTweets = async (match, page, limit, req) => {
+    const pageNum = clampPage(page)
+    const limitNum = clampLimit(limit)
+    const skip = (pageNum - 1) * limitNum
+    const likedBy = req.user?._id || null
+    const totalDocs = await Tweet.countDocuments(match)
+    const totalPages = Math.ceil(totalDocs / limitNum) || 0
 
     const tweets = await Tweet.aggregate([
-        {
-            $match: {
-                owner: new mongoose.Types.ObjectId(String(userId))
-            }
-        },
-        {
-            $sort: { createdAt: -1 }
-        },
+        { $match: match },
+        { $sort: { createdAt: -1 } },
         { $skip: skip },
-        { $limit: parseInt(limit) },
+        { $limit: limitNum },
         {
             $lookup: {
                 from: "users",
@@ -59,22 +50,11 @@ const getUserTweets = asyncHandler(async (req, res) => {
                 foreignField: "_id",
                 as: "owner",
                 pipeline: [
-                    {
-                        $project: {
-                            fullname: 1,
-                            username: 1,
-                            avatar: 1
-                        }
-                    }
+                    { $project: { fullname: 1, username: 1, avatar: 1 } }
                 ]
             }
         },
-        {
-            $addFields: {
-                owner: { $first: "$owner" }
-            }
-        },
-        // Lookup likes count
+        { $addFields: { owner: { $first: "$owner" } } },
         {
             $lookup: {
                 from: "likes",
@@ -88,7 +68,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
                 likesCount: { $size: "$likes" },
                 isLiked: {
                     $cond: {
-                        if: { $in: [req.user?._id, "$likes.likedBy"] },
+                        if: likedBy ? { $in: [likedBy, "$likes.likedBy"] } : false,
                         then: true,
                         else: false
                     }
@@ -107,15 +87,32 @@ const getUserTweets = asyncHandler(async (req, res) => {
         }
     ])
 
+    return { docs: tweets, totalDocs, page: pageNum, totalPages, hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1 }
+}
+
+const getAllTweets = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query
+    const result = await listTweets({}, page, limit, req)
+    return res.status(200).json(new ApiResponse(200, result, "Tweets fetched successfully"))
+})
+
+const getUserTweets = asyncHandler(async (req, res) => {
+    const { userId } = req.params
+    const { page = 1, limit = 10 } = req.query
+
+    if (!isValidObjectId(userId)) {
+        throw new ApiError(400, "Invalid user ID")
+    }
+
+    const result = await listTweets(
+        { owner: new mongoose.Types.ObjectId(String(userId)) },
+        page,
+        limit,
+        req
+    )
+
     return res.status(200).json(
-        new ApiResponse(200, {
-            docs: tweets,
-            totalDocs,
-            page: parseInt(page),
-            totalPages,
-            hasNextPage: parseInt(page) < totalPages,
-            hasPrevPage: parseInt(page) > 1
-        }, "User tweets fetched successfully")
+        new ApiResponse(200, result, "User tweets fetched successfully")
     )
 })
 
@@ -187,6 +184,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
 export {
     createTweet,
+    getAllTweets,
     getUserTweets,
     updateTweet,
     deleteTweet

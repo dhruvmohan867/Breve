@@ -26,7 +26,8 @@ export default function Register() {
       toast.success('Account created! Please sign in.');
       navigate('/login');
     } catch (err) {
-      toast.error(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Registration failed');
+      const fieldError = err.response?.data?.errors?.[0]?.msg;
+      toast.error(fieldError || err.response?.data?.message || 'Registration failed');
     } finally {
       setLoading(false);
     }

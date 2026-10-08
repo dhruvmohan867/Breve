@@ -43,6 +43,7 @@ export default function VideoCard({ video }) {
           )}
           <div>
             <div className="video-title">{video.title}</div>
+            {video.match && <div className="video-match">{video.match}</div>}
             <div className="video-meta">
               <span>{video.owner?.username || 'Unknown'}</span>
               <span>•</span>

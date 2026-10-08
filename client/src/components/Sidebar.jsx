@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HiHome, HiHeart, HiClock, HiCollection, HiChatAlt2, HiChartBar, HiCog, HiUserGroup } from 'react-icons/hi';
+import { HiHome, HiHeart, HiClock, HiCollection, HiChatAlt2, HiChartBar, HiCog, HiUserGroup, HiFilm } from 'react-icons/hi';
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user } = useAuth();
@@ -9,11 +9,15 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       <div className={`sidebar-overlay ${isOpen ? 'open' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <NavLink to="/" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+        <div className="sidebar-label">Index</div>
+        <NavLink to="/" end className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`} onClick={onClose}>
           <HiHome /> Home
         </NavLink>
+        <NavLink to="/week" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`} onClick={onClose}>
+          <HiFilm /> This week
+        </NavLink>
         <NavLink to="/tweets" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-          <HiChatAlt2 /> Tweets
+          <HiChatAlt2 /> Notes
         </NavLink>
 
         {user && (

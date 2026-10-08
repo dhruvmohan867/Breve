@@ -5,9 +5,15 @@ const VideoSchema = new Schema({
        type : String,
        required : true
     },
+    videoPublicId: {
+        type: String,
+    },
     thumbnail :{
         type : String,
         required : true
+    },
+    thumbnailPublicId: {
+        type: String,
     },
     owner :{
         type : mongoose.Schema.Types.ObjectId,
@@ -22,9 +28,48 @@ const VideoSchema = new Schema({
         type: String,
 
     },
+    maker: {
+        type: String,
+        default: "",
+        maxlength: 80
+    },
+    place: {
+        type: String,
+        default: "",
+        maxlength: 80
+    },
+    year: {
+        type: Number,
+        default: null
+    },
+    rights: {
+        type: String,
+        default: "",
+        maxlength: 160
+    },
     duration :{
         type : Number,
         required: true
+    },
+    width: {
+        type: Number,
+        default: null
+    },
+    height: {
+        type: Number,
+        default: null
+    },
+    codec: {
+        type: String,
+        default: ""
+    },
+    captions: {
+        type: String,
+        default: ""
+    },
+    captionsPublicId: {
+        type: String,
+        default: ""
     },
     views :{
         type : Number,
@@ -37,6 +82,7 @@ const VideoSchema = new Schema({
     },
    
 },{timestamps:true})
+VideoSchema.index({ title: "text", description: "text", place: "text", maker: "text" })
 VideoSchema.plugin(mongooseAggregatePaginate)
 
 

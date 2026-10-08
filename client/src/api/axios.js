@@ -1,41 +1,29 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:2001/api/v1';
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ,
+  baseURL,
   withCredentials: true,
 });
 
-
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// On 401, try refreshing the token once
 API.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const url = originalRequest?.url || '';
+    const isAuthCall = url.includes('/users/refresh-token') || url.includes('/users/login') || url.includes('/users/register');
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthCall) {
       originalRequest._retry = true;
       try {
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:2001/api/v1'}/users/refresh-token`,
-          {},
-          { withCredentials: true }
-        );
-        const newToken = data.data.accessToken;
-        localStorage.setItem('accessToken', newToken);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        await axios.post(`${baseURL}/users/refresh-token`, {}, { withCredentials: true });
         return API(originalRequest);
       } catch {
-        localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        return Promise.reject(error);
       }
     }
+
     return Promise.reject(error);
   }
 );

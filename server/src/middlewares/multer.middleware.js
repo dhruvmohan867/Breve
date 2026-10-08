@@ -1,33 +1,43 @@
-import multer from 'multer'
-import { ApiError } from '../utils/ApiError.js'
+import multer from "multer";
+import os from "os";
+import { ApiError } from "../utils/ApiError.js";
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "public/temp")
-  },
-  filename: function (req, file, cb) {
-    const safeName = file.originalname.replace(/\s+/g, '_').replace(/^\.+/, '');
-    cb(null, `${Date.now()}_${safeName}`)
-  }
-})
+    destination: function (req, file, cb) {
+        cb(null, os.tmpdir());
+    },
+    filename: function (req, file, cb) {
+        const safeName = file.originalname.replace(/\s+/g, "_").replace(/^\.+/, "");
+        cb(null, `${Date.now()}_${safeName}`);
+    },
+});
 
-// Only allow images and videos
 const fileFilter = (req, file, cb) => {
-  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  const allowedVideoTypes = ['video/mp4', 'video/mpeg', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-  const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes]
+    if (file.fieldname === "captions") {
+        const name = file.originalname.toLowerCase();
+        if (name.endsWith(".vtt") || file.mimetype === "text/vtt") {
+            cb(null, true);
+            return;
+        }
+        cb(new ApiError(400, "Captions must be a .vtt file"), false);
+        return;
+    }
 
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true)
-  } else {
-    cb(new ApiError(400, `Unsupported file type: ${file.mimetype}. Only images and videos are allowed.`), false)
-  }
-}
+    const allowedImageTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/webm", "video/quicktime", "video/x-msvideo"];
+    const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
 
-export const upload = multer({  
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new ApiError(400, `Unsupported file type: ${file.mimetype}. Only images and videos are allowed.`), false);
+    }
+};
+
+export const upload = multer({
     storage,
     fileFilter,
     limits: {
-      fileSize: 100 * 1024 * 1024  // 100 MB max
-    }
-})
+        fileSize: 500 * 1024 * 1024,
+    },
+});

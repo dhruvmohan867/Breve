@@ -35,12 +35,16 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         // Unsubscribe
         await Subscription.findByIdAndDelete(existingSubscription._id)
     } else {
-        // Subscribe
-        await Subscription.create({
-            subscriber: req.user._id,
-            channel: channelId
-        })
-        subscribed = true
+        try {
+            await Subscription.create({
+                subscriber: req.user._id,
+                channel: channelId
+            })
+            subscribed = true
+        } catch (error) {
+            if (error?.code !== 11000) throw error
+            subscribed = true
+        }
     }
 
     const subscribersCount = await Subscription.countDocuments({ channel: channelId })

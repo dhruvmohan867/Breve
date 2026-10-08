@@ -8,13 +8,8 @@ function VideoSkeleton() {
     <div className="card" style={{ overflow: 'hidden' }}>
       <div className="skeleton skeleton-card" />
       <div style={{ padding: 12 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div className="skeleton skeleton-circle" />
-          <div style={{ flex: 1 }}>
-            <div className="skeleton skeleton-text" />
-            <div className="skeleton skeleton-text-sm" />
-          </div>
-        </div>
+        <div className="skeleton skeleton-text" />
+        <div className="skeleton skeleton-text-sm" />
       </div>
     </div>
   );
@@ -26,13 +21,31 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [searchParams] = useSearchParams();
+  const [facets, setFacets] = useState({ places: [], years: [] });
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('query') || '';
+  const length = searchParams.get('length') || '';
+  const place = searchParams.get('place') || '';
+  const year = searchParams.get('year') || '';
+  const week = searchParams.get('week') || '';
+
+  useEffect(() => {
+    API.get('/videos/facets')
+      .then(({ data }) => setFacets({ places: data.data?.places || [], years: data.data?.years || [] }))
+      .catch(() => {});
+  }, []);
+
+  const setFilter = (key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next);
+  };
 
   const fetchVideos = useCallback((pageNum, append = false) => {
     const setter = append ? setLoadingMore : setLoading;
     setter(true);
-    API.get('/videos', { params: { query, page: pageNum, limit: 12, sortBy: 'createdAt', sortType: 'desc' } })
+    API.get('/videos', { params: { query, length, place, year, week, page: pageNum, limit: 12, sortBy: 'createdAt', sortType: 'desc' } })
       .then(({ data }) => {
         const docs = data.data?.docs || [];
         setVideos(prev => append ? [...prev, ...docs] : docs);
@@ -40,12 +53,12 @@ export default function Home() {
       })
       .catch(() => !append && setVideos([]))
       .finally(() => setter(false));
-  }, [query]);
+  }, [query, length, place, year, week]);
 
   useEffect(() => {
     setPage(1);
     fetchVideos(1);
-  }, [query, fetchVideos]);
+  }, [query, length, place, year, week, fetchVideos]);
 
   const loadMore = () => {
     const next = page + 1;
@@ -56,8 +69,29 @@ export default function Home() {
   return (
     <div>
       <div className="page-header">
-        <h1>{query ? `Results for "${query}"` : 'Discover Videos'}</h1>
-        <p>{query ? 'Showing results matching your search' : 'Trending and latest uploads from creators'}</p>
+        <h1>{query ? `Results for "${query}"` : 'Films'}</h1>
+        <p>{query ? 'Films matching that title, maker, place, or description' : 'Everything published, newest first.'}</p>
+      </div>
+
+      <div className="catalog-filters">
+        <select className="form-control" value={length} onChange={(e) => setFilter('length', e.target.value)}>
+          <option value="">Any length</option>
+          <option value="under15">Under 15 seconds</option>
+          <option value="mid">15 to 30 seconds</option>
+          <option value="over30">Over 30 seconds</option>
+        </select>
+        <select className="form-control" value={place} onChange={(e) => setFilter('place', e.target.value)}>
+          <option value="">Any place</option>
+          {facets.places.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        <select className="form-control" value={year} onChange={(e) => setFilter('year', e.target.value)}>
+          <option value="">Any year</option>
+          {facets.years.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+        <label className="catalog-week">
+          <input type="checkbox" checked={week === 'current'} onChange={(e) => setFilter('week', e.target.checked ? 'current' : '')} />
+          This week only
+        </label>
       </div>
 
       {loading ? (
@@ -66,9 +100,8 @@ export default function Home() {
         </div>
       ) : videos.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🎬</div>
-          <h3>No videos found</h3>
-          <p>{query ? 'Try a different search term' : 'Be the first to upload a video!'}</p>
+          <h3>No films found</h3>
+          <p>{query ? 'Try a different search term' : 'Nothing has been published yet.'}</p>
         </div>
       ) : (
         <>

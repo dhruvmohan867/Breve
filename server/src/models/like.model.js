@@ -7,4 +7,17 @@ const likeSchema = new Schema({
   likedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
 }, { timestamps: true });
 
+likeSchema.index(
+    { likedBy: 1, video: 1 },
+    { unique: true, partialFilterExpression: { video: { $type: "objectId" } } }
+);
+likeSchema.index(
+    { likedBy: 1, comment: 1 },
+    { unique: true, partialFilterExpression: { comment: { $type: "objectId" } } }
+);
+likeSchema.index(
+    { likedBy: 1, tweet: 1 },
+    { unique: true, partialFilterExpression: { tweet: { $type: "objectId" } } }
+);
+
 export const Like = mongoose.model("Like", likeSchema);

@@ -11,12 +11,9 @@ export function AuthProvider({ children }) {
 
   const fetchUser = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) { setLoading(false); return; }
       const { data } = await API.get('/users/current-user');
       setUser(data.data);
     } catch {
-      localStorage.removeItem('accessToken');
       setUser(null);
     } finally {
       setLoading(false);
@@ -27,7 +24,6 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     const { data } = await API.post('/users/login', credentials);
-    localStorage.setItem('accessToken', data.data.accessToken);
     setUser(data.data.user);
     return data;
   };
@@ -40,8 +36,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try { await API.post('/users/logout'); } catch {}
-    localStorage.removeItem('accessToken');
+    try { await API.post('/users/logout'); } catch { /* session already cleared */ }
     setUser(null);
   };
 
