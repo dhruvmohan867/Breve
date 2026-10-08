@@ -49,21 +49,38 @@ const uploadRawCloudinary = async (localFilePath) => {
     }
 };
 
-const uploadVideoCloudinary = async (localFilePath) => {
+const uploadVideoCloudinary = (localFilePath) => new Promise((resolve) => {
+    if (!localFilePath) {
+        resolve(null);
+        return;
+    }
+    let settled = false;
+    const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        removeLocalFile(localFilePath);
+        resolve(value);
+    };
     try {
-        if (!localFilePath) return null;
-        const response = await cloudinary.uploader.upload_large(localFilePath, {
+        const stream = cloudinary.uploader.upload_large(localFilePath, {
             resource_type: "video",
             chunk_size: 20 * 1024 * 1024,
+        }, (error, uploaded) => {
+            if (error || !uploaded?.secure_url && !uploaded?.url) {
+                console.error("Cloudinary video upload failed");
+                finish(null);
+                return;
+            }
+            finish({ ...uploaded, url: uploaded.secure_url || uploaded.url });
         });
-        removeLocalFile(localFilePath);
-        return { ...response, url: response.secure_url || response.url };
+        if (stream && typeof stream.on === "function") {
+            stream.on("error", () => finish(null));
+        }
     } catch (error) {
         console.error("Cloudinary video upload failed");
-        removeLocalFile(localFilePath);
-        return null;
+        finish(null);
     }
-};
+});
 
 const deleteFromCloudinary = async (publicId, resourceType = "image") => {
     try {

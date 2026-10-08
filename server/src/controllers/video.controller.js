@@ -130,7 +130,17 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     pipeline.push({ $match: matchConditions })
 
-    pipeline.push({ $sort: { [allowedSortField(sortBy)]: sortDirection(sortType) } })
+    const pinLongFilms = !words && !weekOrder && allowedSortField(sortBy) === "createdAt" && sortDirection(sortType) === -1
+    if (pinLongFilms) {
+        pipeline.push({
+            $addFields: {
+                lead: { $cond: [{ $gte: ["$duration", 120] }, 1, 0] }
+            }
+        })
+        pipeline.push({ $sort: { lead: -1, createdAt: -1 } })
+    } else {
+        pipeline.push({ $sort: { [allowedSortField(sortBy)]: sortDirection(sortType) } })
+    }
 
     // Lookup owner details
     pipeline.push(

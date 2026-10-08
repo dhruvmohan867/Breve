@@ -70,7 +70,7 @@ export default function Home() {
     <div>
       <div className="page-header">
         <h1>{query ? `Results for "${query}"` : 'Films'}</h1>
-        <p>{query ? 'Films matching that title, maker, place, or description' : 'Everything published, newest first.'}</p>
+        <p>{query ? 'Films matching that title, maker, place, or description' : 'The longer films first, then the short clips.'}</p>
       </div>
 
       <div className="catalog-filters">
